@@ -18,7 +18,7 @@
 #ifndef daemon_h
 #define daemon_h
 
-/* *********************************************************************************** *
+/**
  * @brief Detach the process from its controlling terminal and run it as a daemon.
  *
  * The parent process exits after forking. The child creates a new session,
@@ -29,7 +29,12 @@
  * @param file Path to the PID file to create and lock.
  *
  * @note Exits the process with failure if daemon setup or PID-file handling fails.
- * *********************************************************************************** */
+ */
 void daemonize(const char *pidFile);
+
+/**
+ * @brief Close the PID file and remove it during daemon shutdown.
+ */
+void shutdown_daemon(void);
 
 #endif /* daemon_h */

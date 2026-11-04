@@ -35,20 +35,31 @@
 #include "mqtt.h"
 #include "sensors.h"
 #include "serial.h"
+#include "commands.h"
+#include "signals.h"
 
-/* *********************************************************************************** *
+/**
  * Some globals we can't do without... ;)
- * *********************************************************************************** */ 
+ */
 int    debug              = DEBUG;             // debug level (exported)
 bool   foreground         = false;             // run in foreground, not as daemon
 
-/* *********************************************************************************** *
+/**
  * MQTT subscriptions
- * *********************************************************************************** */ 
+ */
 mqttIncoming_t mqttSubscriptions[] = {
 //    {"/TankBot/Command/Help",           &mqttHelpCB,           mqttSubscriptions},
     {NULL, NULL, NULL},
 };
+
+/**
+ * @brief Cleanup called by the signal thread after the Roomba power-down.
+ */
+static void shutdownHook(void) {
+    commandDisplay(NULL);
+    mqttEnd();
+    shutdown_daemon();
+}
 
 /* *********************************************************************************** *
  *                                  M  A  I  N
@@ -74,6 +85,17 @@ int main( int argc, char *argv[] ) {
     initLog(!foreground);
     setLogLevel(LOG_NOTICE+debug);
         
+    /* ******************************************************************************* *
+     * Initialize signal handling
+     * ******************************************************************************* */ 
+    if (signalsInit() != 0) {
+        writeLog(LOG_ERR, "Cannot initialize signal handling: %s", strerror(errno));
+        exit(1);
+    }
+
+    /* ******************************************************************************* *
+     * Daemonize if not in foreground mode
+     * ******************************************************************************* */ 
     if (!foreground) {
         // run in background
         daemonize(PID_FILE);
@@ -81,6 +103,25 @@ int main( int argc, char *argv[] ) {
         writeLog(LOG_NOTICE, "Running in foreground");
     }
 
+    /* ******************************************************************************* *
+     * Start signal thread
+     * ******************************************************************************* */ 
+    if (signalsStart(shutdownHook) != 0) {
+        writeLog(LOG_ERR, "Cannot start signal thread: %s", strerror(errno));
+        exit(1);
+    }
+
+    /* ******************************************************************************* *
+     * Initialize MQTT
+     * ******************************************************************************* */ 
+    if ( mqttInit( MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE, mqttSubscriptions) ) {
+        writeLog(LOG_INFO, "Connected to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
+        mqttPublish("roombot/info/message", "Connected");
+    } else {
+        writeLog(LOG_ERR,  "Failed to connect to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
+        exit(1);
+    }
+    
     /* ******************************************************************************* *
      * Initialize WiringPi
      * ******************************************************************************* */ 
@@ -113,21 +154,16 @@ int main( int argc, char *argv[] ) {
     }
 
     /* ******************************************************************************* *
-     * Initialize MQTT
-     * ******************************************************************************* */ 
-    if ( mqttInit( MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE, mqttSubscriptions) ) {
-        writeLog(LOG_INFO, "Connected to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
-        mqttPublish("roombot/info/message", "Connected");
-    } else {
-        writeLog(LOG_ERR,  "Failed to connect to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
-        exit(1);
-    }
-    
-    /* ******************************************************************************* *
      * Start Sensor Thread
      * ******************************************************************************* */ 
     pthread_t threadSensorID;
     pthread_create(&threadSensorID, NULL, threadSensors, NULL);
+
+    /* ******************************************************************************* *
+     * Start Up Roomba
+     * ******************************************************************************* */ 
+    commandStart();
+    commandDisplay("RUN");
 
     /* ******************************************************************************* *
      * From her to eternity... ;)

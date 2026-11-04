@@ -30,8 +30,6 @@
 /* *********************************************************************************** *
  * Forward declarations of static functions
  * *********************************************************************************** */
-static void signalCB( int sigval );
-static void shutdown_daemon(void);
 static void writePid();
 
 /* *********************************************************************************** *
@@ -40,11 +38,11 @@ static void writePid();
 static int        pidFilehandle = 0;         // PID file kept open for daemon
 static const char *pidFile = NULL;           // Name of file to write PID to
 
-/* *********************************************************************************** *
+/**
  * @brief Create and lock the configured PID file, then write this process's ID.
  *
  * @note Exits the process with failure if the PID file cannot be opened or locked.
- * *********************************************************************************** */
+ */
 void writePid() {
     pidFilehandle = open(pidFile, O_RDWR|O_CREAT, 0600);
     
@@ -63,14 +61,14 @@ void writePid() {
     }
 }
 
-/* *********************************************************************************** *
+/**
  * @brief Handle a signal received by the daemon.
  *
  * SIGHUP is logged without stopping the daemon. SIGINT and SIGTERM trigger
  * shutdown and then exit successfully; other signals are logged as unhandled.
  *
  * @param sigval The number of the signal received.
- * *********************************************************************************** */
+ *
 void signalCB(int sigval)
 {
     switch(sigval)
@@ -89,15 +87,7 @@ void signalCB(int sigval)
             break;
     }
 }
-
-/* *********************************************************************************** *
- * @brief Close the PID file and remove it during daemon shutdown.
- * *********************************************************************************** */
-void shutdown_daemon(void) {
-    syslog(LOG_INFO, "Yard Control shutting down");
-    close(pidFilehandle);
-    unlink(pidFile);
-}
+*/
 
 
 /* *********************************************************************************** *
@@ -134,7 +124,13 @@ void daemonize(const char *file) {
     
     writePid();                              // write PID to file
     
-    signal(SIGHUP,  signalCB);               // catch hangup signal
-    signal(SIGTERM, signalCB);               // catch term signal
-    signal(SIGINT,  signalCB);               // catch interrupt signal
+    //signal(SIGHUP,  signalCB);               // catch hangup signal
+    //signal(SIGTERM, signalCB);               // catch term signal
+    //signal(SIGINT,  signalCB);               // catch interrupt signal
+}
+
+void shutdown_daemon(void) {
+    syslog(LOG_INFO, "Yard Control shutting down");
+    close(pidFilehandle);
+    unlink(pidFile);
 }
