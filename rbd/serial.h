@@ -27,7 +27,7 @@
 #define SERIAL_BAUD_57600   57600
 #define SERIAL_BAUD_115200  115200
 
-/* *********************************************************************************** *
+/**
  * @brief Open and configure the serial device.
  *
  * The device is opened read/write, non-blocking, without becoming the
@@ -36,25 +36,25 @@
  * @param dev  Device path, e.g. "/dev/ttyS2".
  * @param baud Baud rate (19200, 57600 or 115200).
  * @return The file descriptor (>= 0) on success, -1 on error (errno set).
- * *********************************************************************************** */
+ */
 int serialOpen(const char *dev, unsigned baud);
 
-/* *********************************************************************************** *
+/**
  * @brief Close the serial device.
- * *********************************************************************************** */
+ */
 void serialClose(void);
 
-/* *********************************************************************************** *
+/**
  * @brief Get the file descriptor of the open serial device.
  *
  * Use it with poll() and read(). Do not write to it directly, use
  * serialWrite() instead.
  *
  * @return File descriptor, or -1 if the device is not open.
- * *********************************************************************************** */
+ */
 int serialFd(void);
 
-/* *********************************************************************************** *
+/**
  * @brief Set the TTY parameters for talking to the Roomba.
  *
  * Raw mode, 8N1, no flow control, no echo, receiver enabled, modem lines
@@ -63,10 +63,10 @@ int serialFd(void);
  * @param fd   Open file descriptor of a tty.
  * @param baud Baud rate (19200, 57600 or 115200).
  * @return 0 on success, -1 on error (errno set, EINVAL for a bad baud rate).
- * *********************************************************************************** */
+ */
 int serialConfigure(int fd, unsigned baud);
 
-/* *********************************************************************************** *
+/**
  * @brief Change the baud rate of the open device.
  *
  * Call this after the Roomba was told to change its rate (OI opcode 129)
@@ -74,10 +74,10 @@ int serialConfigure(int fd, unsigned baud);
  *
  * @param baud New baud rate.
  * @return 0 on success, -1 on error.
- * *********************************************************************************** */
+ */
 int serialSetBaud(unsigned baud);
 
-/* *********************************************************************************** *
+/**
  * @brief Write bytes to the Roomba (thread safe).
  *
  * Blocks until all bytes are written or a 200 ms timeout occurs.
@@ -85,14 +85,14 @@ int serialSetBaud(unsigned baud);
  * @param buf Data to send.
  * @param len Number of bytes.
  * @return Number of bytes written (== len) on success, -1 on error.
- * *********************************************************************************** */
+ */
 ssize_t serialWrite(const uint8_t *buf, size_t len);
 
-/* *********************************************************************************** *
+/**
  * @brief Discard all unread input.
  *
  * Useful before starting a stream or after a mode change.
- * *********************************************************************************** */
+ */
 void serialFlushInput(void);
 
 #endif

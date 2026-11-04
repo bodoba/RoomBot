@@ -25,11 +25,11 @@
 #define PUBLISH_PERIOD_MS  200                      /* one reading every 200 ms -> 5Hz */
 #define JSON_MAX           384
 
-/* ************************************************************************************ *
+/**
  * @brief Sensor Thread
  *
  * Read Roomba sensors and send the readings out via MQTT
- * ************************************************************************************ */
+ */
 void *threadSensors(void *);
 
 #endif

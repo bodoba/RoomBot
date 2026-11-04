@@ -61,35 +61,6 @@ void writePid() {
     }
 }
 
-/**
- * @brief Handle a signal received by the daemon.
- *
- * SIGHUP is logged without stopping the daemon. SIGINT and SIGTERM trigger
- * shutdown and then exit successfully; other signals are logged as unhandled.
- *
- * @param sigval The number of the signal received.
- *
-void signalCB(int sigval)
-{
-    switch(sigval)
-    {
-        case SIGHUP:
-            syslog(LOG_WARNING, "Received SIGHUP signal.");
-            break;
-        case SIGINT:
-        case SIGTERM:
-            syslog(LOG_INFO, "Daemon exiting");
-            shutdown_daemon();
-            exit(EXIT_SUCCESS);
-            break;
-        default:
-            syslog(LOG_WARNING, "Unhandled signal %s", strsignal(sigval));
-            break;
-    }
-}
-*/
-
-
 /* *********************************************************************************** *
  * P U B L I C  I N T E R F A C E
  * *********************************************************************************** */

@@ -61,10 +61,10 @@ static const uint8_t pktLen[36] = {
 	[22] = 2, [23] = 2, [24] = 1, [25] = 2, [26] = 2, [35] = 1
 };
 
-/* *********************************************************************************** *
+/**
  * @brief Monotonic time in milliseconds.
  * @return Milliseconds since an arbitrary start point.
- * *********************************************************************************** */
+ */
 static uint64_t nowMs(void) {
 	struct timespec ts;
 
@@ -72,14 +72,14 @@ static uint64_t nowMs(void) {
 	return (uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u;
 }
 
-/* *********************************************************************************** *
+/**
  * @brief Decode the payload of one verified stream frame.
  *
  * @param p   Payload (sequence of id, data...).
  * @param n   Payload length in bytes.
  * @param out Snapshot to update.
  * @return 0 on success, -1 on malformed payload.
- * *********************************************************************************** */
+ */
 static int decodePayload(const uint8_t *p, size_t n, SensorData *out) {
 	size_t i = 0;
 
@@ -108,14 +108,14 @@ static int decodePayload(const uint8_t *p, size_t n, SensorData *out) {
 	return 0;
 }
 
-/* *********************************************************************************** *
+/**
  * @brief Feed one byte into the frame parser.
  *
  * @param ps  Parser state.
  * @param c   Received byte.
  * @param out Snapshot updated when a valid frame completes.
  * @return 1 if a valid frame was decoded, 0 otherwise.
- * *********************************************************************************** */
+ */
 static int parserFeed(Parser *ps, uint8_t c, SensorData *out) {
 	switch (ps->state) {
 	case S_SYNC:
@@ -146,7 +146,7 @@ static int parserFeed(Parser *ps, uint8_t c, SensorData *out) {
 	return 0;
 }
 
-/* *********************************************************************************** *
+/**
  * @brief Format a snapshot as one JSON object.
  *
  * @param d    Snapshot.
@@ -154,7 +154,7 @@ static int parserFeed(Parser *ps, uint8_t c, SensorData *out) {
  * @param buf  Output buffer.
  * @param size Size of the output buffer.
  * @return Number of characters written (see snprintf).
- * *********************************************************************************** */
+ */
 static int toJson(const SensorData *d, uint64_t seq, char *buf, size_t size)
 {
 	return snprintf(buf, size,
@@ -168,12 +168,12 @@ static int toJson(const SensorData *d, uint64_t seq, char *buf, size_t size)
 	    d->charge_mAh, d->capacity_mAh);
 }
 
-/* *********************************************************************************** *
+/**
  * @brief Sensor thread: reads the OI stream and publishes JSON via MQTT.
  *
  * @param arg Unused.
  * @return Never returns.
- * *********************************************************************************** */
+ */
 void *threadSensors(void*) {
     SensorData cur, lastPub;
 	Parser ps;

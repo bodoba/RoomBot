@@ -27,7 +27,7 @@
 static struct mosquitto *mosq = NULL;             /**< Handle to MQTT broker           */
 static mqttIncoming_t *subscriptionList = NULL;   /**< List of topics to subscribe to  */
 
-/* *********************************************************************************** *
+/**
  * @brief Dispatch incomming MQTT message
  * 
  * Select and call callback function that matches the topic
@@ -35,7 +35,7 @@ static mqttIncoming_t *subscriptionList = NULL;   /**< List of topics to subscri
  * @param mos
  * @param userData
  * @param message
- * ************************************************************************************ */
+ */
 void dispatchMessage(struct mosquitto *mos, void *userData, const struct mosquitto_message *message) {
     // identify callback functiion by matching topic
     int idx = 0;

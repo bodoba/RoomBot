@@ -27,7 +27,7 @@
  * *********************************************************************************** */
 #define MAX_MQTT_MESSAGE 1024  /**< Maximum lenght of a MQTT message */
 
-/* *********************************************************************************** *
+/**
  * @struct mqttIncoming_t
  * @brief Struct to register handler for MQTT subscriptions. mqttInit() will register
  *        the sbscribtions.
@@ -37,14 +37,14 @@
  *                                   char  *topic,       Subcription topic
  *                                   void *user_data     User defined argument
  *                            );
- * *********************************************************************************** */
+ */
  typedef struct mqttIncoming_t {
     const char* topic;                          /**< MQTT topic to subscribe to        */
     void  (*handler)(char*, int, char*, void*); /**< callback function                 */
     void  *user_data;                           /**< user defined argument             */
 } mqttIncoming_t;
 
-/* *********************************************************************************** *
+/**
  * @brief Setup connection to MQTT broker
  * 
  * Initilizes mosquitto library, connects to MQTT broker and subscribes to topics 
@@ -56,15 +56,15 @@
  * @param[in] subscriptions Array of MQTT subscriptions
  * 
  * @return true on success, false on error
- * *********************************************************************************** */
+ */
 bool mqttInit(const char* broker, int port, int keepalive, mqttIncoming_t *subscriptions);
 
-/* *********************************************************************************** *
+/**
  * @brief Terminate connection to MQTT broker                                   
- * *********************************************************************************** */
+ */
 void mqttEnd(void );
 
-/* *********************************************************************************** *
+/**
  * @brief Publish a formatted message with given topic
  * 
  * @param topic   Topic of MQTT message
@@ -72,10 +72,10 @@ void mqttEnd(void );
  * @param ...     Values referenced by the format string.
  * 
  * @return true on success, false on error
- * *********************************************************************************** */
+ */
 bool mqttPublish(const char *topic, const char *format,...);
 
-/* *********************************************************************************** *
+/**
  * @brief Publish a formatted message with given topic
  * 
  * @param topic   Topic of MQTT message
@@ -85,7 +85,7 @@ bool mqttPublish(const char *topic, const char *format,...);
  * @param retain  Set to true to make the message retained
  * 
  * @return true on success, false on error
- * *********************************************************************************** */
+ */
 bool mqttPublishRaw(const char* topic, const char *payload, int len, int qos, bool retain);
 
 #endif
