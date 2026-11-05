@@ -26,6 +26,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 #include "mqtt.h"
 #include "sensors.h"
@@ -60,6 +61,8 @@ static const uint8_t pktLen[36] = {
 	[7]  = 1, [8]  = 1, [9]  = 1, [10] = 1, [11] = 1, [12] = 1,
 	[22] = 2, [23] = 2, [24] = 1, [25] = 2, [26] = 2, [35] = 1
 };
+
+static _Atomic uint8_t lastMode = 0xff;         /**< 0xff = no data yet */
 
 /**
  * @brief Monotonic time in milliseconds.
@@ -205,7 +208,8 @@ void *threadSensors(void*) {
 				dirty |= parserFeed(&ps, rx[i], &cur);
 		}
 		t = nowMs();
-
+		atomic_store(&lastMode, cur.oiMode);
+		
 		/* Publish on safety-relevant change, otherwise at 10 Hz. */
 		if (dirty && ((
                         (cur.bumpsDrops != lastPub.bumpsDrops) ||
@@ -226,4 +230,10 @@ void *threadSensors(void*) {
 		}
 	}
 	return NULL;
+}
+
+int sensorsGetMode(void) {
+	uint8_t m = atomic_load(&lastMode);
+
+	return (m == 0xff) ? -1 : (int)m;
 }

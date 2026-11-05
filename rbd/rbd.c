@@ -154,16 +154,21 @@ int main( int argc, char *argv[] ) {
     }
 
     /* ******************************************************************************* *
-     * Start Sensor Thread
-     * ******************************************************************************* */ 
-    pthread_t threadSensorID;
-    pthread_create(&threadSensorID, NULL, threadSensors, NULL);
-
-    /* ******************************************************************************* *
      * Start Up Roomba
      * ******************************************************************************* */ 
     commandStart();
     commandDisplay("RUN");
+
+    OiMode mode = -1;
+    commandGetMode(&mode);
+
+    writeLog(LOG_INFO, "Roomba started in mode %s (%d)", commandModeName(mode), mode);
+
+    /* ******************************************************************************* *
+     * Start Sensor Thread
+     * ******************************************************************************* */ 
+    pthread_t threadSensorID;
+    pthread_create(&threadSensorID, NULL, threadSensors, NULL);
 
     /* ******************************************************************************* *
      * From her to eternity... ;)

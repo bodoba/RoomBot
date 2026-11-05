@@ -32,4 +32,11 @@
  */
 void *threadSensors(void *);
 
+/**
+ * @brief Get the OI mode from the latest stream frame.
+ *
+ * @return OI mode (0..3), or -1 if no frame has been received yet.
+ */
+int sensorsGetMode(void);
+
 #endif

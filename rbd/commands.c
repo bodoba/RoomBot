@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <termios.h>
 #include <unistd.h>
+#include <poll.h>
 
 #include "commands.h"
 #include "serial.h"
@@ -105,4 +106,60 @@ int commandDisplayRaw(const uint8_t digits[DISPLAY_DIGITS]) {
 	for (i = 0; i < DISPLAY_DIGITS; i++)
 		seq[1 + i] = digits[i] & 0x7f;  /* bit 7 is unused */
 	return sendSequence(seq, sizeof(seq));
+}
+
+int commandGetMode(OiMode *mode) {
+	static const uint8_t query[] = {OI_OP_SENSORS, OI_PKT_OI_MODE};
+	struct pollfd pfd;
+	uint8_t reply;
+	ssize_t n;
+	int rc;
+	int fd = serialFd();
+
+	if (mode == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fd < 0) {
+		errno = EBADF;
+		return -1;
+	}
+	serialFlushInput();                     /* drop stale bytes */
+	if (sendSequence(query, sizeof(query)) < 0)
+		return -1;
+
+	pfd.fd = fd;
+	pfd.events = POLLIN;
+	do {
+		rc = poll(&pfd, 1, MODE_REPLY_TIMEOUT_MS);
+	} while (rc < 0 && errno == EINTR);
+	if (rc == 0) {
+		errno = ETIMEDOUT;              /* Roomba asleep or OI not started */
+		return -1;
+	}
+	if (rc < 0)
+		return -1;
+
+	n = read(fd, &reply, 1);
+	if (n != 1) {
+		if (n >= 0)
+			errno = EIO;
+		return -1;
+	}
+	if (reply > OI_MODE_FULL) {
+		errno = EPROTO;
+		return -1;
+	}
+	*mode = (OiMode)reply;
+	return 0;
+}
+
+const char *commandModeName(OiMode mode) {
+	switch (mode) {
+	case OI_MODE_OFF:     return "OFF";
+	case OI_MODE_PASSIVE: return "PASSIVE";
+	case OI_MODE_SAFE:    return "SAFE";
+	case OI_MODE_FULL:    return "FULL";
+	default:              return "UNKNOWN";
+	}
 }

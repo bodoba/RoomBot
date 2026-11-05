@@ -19,18 +19,29 @@
 #define COMMANDS_H
 #include <stdint.h>
 
-/** Roomba Open Interface opcodes used by this module.                         */
-#define OI_OP_START             128     /**< Start the OI (Passive mode)       */
-#define OI_OP_SAFE              131     /**< Enter Safe mode                   */
-#define OI_OP_POWER             133     /**< Power down the Roomba             */
-#define OI_OP_MOTORS            138     /**< Switch brushes and vacuum         */
-#define OI_OP_DRIVE_DIRECT      145     /**< Drive wheels with individual speed*/
-#define OI_OP_STREAM_PAUSE      150     /**< Pause (0) or resume (1) stream    */
-#define OI_OP_DIGIT_LEDS_RAW    163     /**< Display: raw segment bits         */
-#define OI_OP_DIGIT_LEDS_ASCII  164     /**< Display: ASCII characters         */
+/** Roomba Open Interface opcodes used by this module.                             */
+#define OI_OP_START             128     /**< Start the OI (Passive mode)           */
+#define OI_OP_SAFE              131     /**< Enter Safe mode                       */
+#define OI_OP_POWER             133     /**< Power down the Roomba                 */
+#define OI_OP_MOTORS            138     /**< Switch brushes and vacuum             */
+#define OI_OP_SENSORS           142     /**< Query a single sensor packet          */
+#define OI_OP_DRIVE_DIRECT      145     /**< Drive wheels with individual speed    */
+#define OI_OP_STREAM_PAUSE      150     /**< Pause (0) or resume (1) stream        */
+#define OI_OP_DIGIT_LEDS_RAW    163     /**< Display: raw segment bits             */
+#define OI_OP_DIGIT_LEDS_ASCII  164     /**< Display: ASCII characters             */
 
-#define DISPLAY_DIGITS            4     /**< Number of digits on the display   */
+#define OI_PKT_OI_MODE           35     /**< Packet 35: current OI mode            */
+#define DISPLAY_DIGITS            4     /**< Number of digits on the display       */
 #define OI_MODE_CHANGE_US     20000     /**< OI needs >= 20 ms after a mode change */
+#define MODE_REPLY_TIMEOUT_MS   100     /**< Max. wait for the mode reply          */
+
+/** Open Interface modes as reported by packet 35. */
+typedef enum {
+	OI_MODE_OFF     = 0,
+	OI_MODE_PASSIVE = 1,
+	OI_MODE_SAFE    = 2,
+	OI_MODE_FULL    = 3
+} OiMode;
 
 /**
  * @brief Start the Open Interface and switch the Roomba to Safe mode.
@@ -90,5 +101,31 @@ int commandDisplay(const char *text);
  * @return 0 on success, -1 on error (errno set, EINVAL if digits is NULL).
  */
 int commandDisplayRaw(const uint8_t digits[DISPLAY_DIGITS]);
+
+/**
+ * @brief Query the current OI mode of the Roomba.
+ *
+ * Sends the Sensors command for packet 35 and waits up to 100 ms for the
+ * one byte reply.
+ *
+ * @note Reads from the serial fd. Call it only while the sensor stream is not
+ *       running or paused, and when no other thread reads the fd.
+ *
+ * @param mode Receives the mode on success.
+ *
+ * @return 0 on success, -1 on error (errno set: EINVAL for a NULL pointer,
+ *         ETIMEDOUT if the Roomba does not answer, EPROTO for an invalid
+ *         reply).
+ */
+int commandGetMode(OiMode *mode);
+
+/**
+ * @brief Convert an OI mode into a printable name.
+ *
+ * @param mode OI mode.
+ *
+ * @return "OFF", "PASSIVE", "SAFE", "FULL" or "UNKNOWN".
+ */
+const char *commandModeName(OiMode mode);
 
 #endif /* COMMANDS_H */
