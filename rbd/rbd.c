@@ -37,6 +37,7 @@
 #include "serial.h"
 #include "commands.h"
 #include "signals.h"
+#include "remotecontrol.h"
 
 /**
  * Some globals we can't do without... ;)
@@ -48,7 +49,10 @@ bool   foreground         = false;             // run in foreground, not as daem
  * MQTT subscriptions
  */
 mqttIncoming_t mqttSubscriptions[] = {
-//    {"/TankBot/Command/Help",           &mqttHelpCB,           mqttSubscriptions},
+    {"roombot/cmd/drive",        &mqttDrive,       NULL},
+    {"roombot/cmd/start",        &mqttStart,       NULL},
+    {"roombot/cmd/power_down",    &mqttPowerDown,  NULL},
+    {"roombot/cmd/display",      &mqttDisplay,     NULL},
     {NULL, NULL, NULL},
 };
 
@@ -110,6 +114,18 @@ int main( int argc, char *argv[] ) {
         writeLog(LOG_ERR, "Cannot start signal thread: %s", strerror(errno));
         exit(1);
     }
+    
+    /* ******************************************************************************* *
+     * Start Watchdog thread
+     * ******************************************************************************* */ 
+    watchdogStart();    
+    
+    /* ******************************************************************************* *
+     * Initialize WiringPi (before MQTT, the start handler uses the GPIO)
+     * ******************************************************************************* */ 
+    wiringPiSetup();
+    pinMode(DD_PIN, OUTPUT);
+    digitalWrite(DD_PIN, HIGH);             /* idle level, no accidental pulse */
 
     /* ******************************************************************************* *
      * Initialize MQTT
@@ -123,12 +139,6 @@ int main( int argc, char *argv[] ) {
     }
     
     /* ******************************************************************************* *
-     * Initialize WiringPi
-     * ******************************************************************************* */ 
-    wiringPiSetup();
-    pinMode(DD_PIN, OUTPUT);
-
-    /* ******************************************************************************* *
      * Turn on Roomba
      * ******************************************************************************* */ 
     digitalWrite(DD_PIN, LOW);                                      /*  turn on Roomba */
@@ -136,33 +146,28 @@ int main( int argc, char *argv[] ) {
     digitalWrite(DD_PIN, HIGH);
     
     /* ******************************************************************************* *
-     * Initialize serial interface
+     * Initialize serial interface, wake up and start the Roomba
      * ******************************************************************************* */  
-    /* Give the Roomba time to wake up, then open the port */
-    sleep(2);
     if (serialOpen(DEV_ROOMBA, SERIAL_BAUD_115200) < 0) {
         writeLog(LOG_ERR, "Cannot open %s: %s", DEV_ROOMBA, strerror(errno));
         exit(1);
     }
-    {
-        static const uint8_t start[] = {128, 131};          /* START, SAFE */
-        static const uint8_t stream[] = {148, 12, 7, 8, 9, 10, 11, 12,
-                                         22, 23, 24, 25, 26, 35};
-        serialWrite(start, sizeof(start));
-        usleep(20000);                  /* OI needs ~20 ms after a mode change */
-        serialWrite(stream, sizeof(stream));
+    
+    if (commandWake() < 0 || commandStart() < 0) {
+        writeLog(LOG_ERR, "Cannot start Roomba: %s", strerror(errno));
+        exit(1);
     }
-
-    /* ******************************************************************************* *
-     * Start Up Roomba
-     * ******************************************************************************* */ 
-    commandStart();
+    
     commandDisplay("RUN");
 
-    OiMode mode = -1;
-    commandGetMode(&mode);
+    OiMode mode = -1;                       /* query BEFORE the stream starts */
+    
+    if (commandGetMode(&mode) == 0)
+        writeLog(LOG_INFO, "Roomba started in mode %s (%d)", commandModeName(mode), mode);
+    else
+        writeLog(LOG_WARNING, "Mode query failed: %s", strerror(errno));
 
-    writeLog(LOG_INFO, "Roomba started in mode %s (%d)", commandModeName(mode), mode);
+    commandStreamStart();
 
     /* ******************************************************************************* *
      * Start Sensor Thread

@@ -25,7 +25,7 @@ set (CMAKE_C_FLAGS "-std=gnu11 -Wall")
 
 pkg_check_modules(MOSQUITTO REQUIRED IMPORTED_TARGET libmosquitto)
 
-add_executable(rbd rbd.c logging.c daemon.c mqtt.c sensors.c serial.c commands.c signals.c)
+add_executable(rbd rbd.c logging.c daemon.c mqtt.c sensors.c serial.c commands.c signals.c remotecontrol.c json.c)
 
 find_path(WIRINGPI_INCLUDE_DIR NAMES wiringPi.h)
 find_library(WIRINGPI_LIBRARY NAMES wiringPi)

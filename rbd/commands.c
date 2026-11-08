@@ -20,9 +20,41 @@
 #include <termios.h>
 #include <unistd.h>
 #include <poll.h>
+#include <time.h>
+#include <wiringPi.h>
 
+#include "rbd.h"      
 #include "commands.h"
 #include "serial.h"
+
+/**
+ * @brief Sleep for a number of milliseconds.
+ *
+ * Uses nanosleep() because usleep() is not reliable for values >= 1 s.
+ *
+ * @param ms Time to sleep in milliseconds.
+ */
+static void sleepMs(unsigned ms) {
+	struct timespec ts;
+
+	ts.tv_sec = ms / 1000;
+	ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+	while (nanosleep(&ts, &ts) < 0 && errno == EINTR)
+		;                                   /* continue with the remaining time */
+}
+
+int commandWake(void) {
+	if (serialFd() < 0) {
+		errno = EBADF;
+		return -1;
+	}
+	digitalWrite(DD_PIN, LOW);              /* BRC low: wake up the Roomba */
+	sleepMs(WAKE_PULSE_MS);
+	digitalWrite(DD_PIN, HIGH);             /* back to idle */
+	sleepMs(WAKE_BOOT_MS);
+	serialFlushInput();                     /* drop bytes sent while booting */
+	return 0;
+}
 
 /**
  * @brief Send a complete command sequence and wait until it has been transmitted.
@@ -162,4 +194,44 @@ const char *commandModeName(OiMode mode) {
 	case OI_MODE_FULL:    return "FULL";
 	default:              return "UNKNOWN";
 	}
+}
+
+int commandDrive(int velocity, int radius) {
+	uint8_t seq[5];
+	uint16_t v, r;
+
+	/* Limit the speed here, not only in the GUI. */
+	if (velocity > DRIVE_MAX_SPEED_MMS)
+		velocity = DRIVE_MAX_SPEED_MMS;
+	if (velocity < -DRIVE_MAX_SPEED_MMS)
+		velocity = -DRIVE_MAX_SPEED_MMS;
+
+	if (radius >= 32767) {
+		r = 0x8000;                     /* special value: straight */
+	} else {
+		if (radius > DRIVE_MAX_RADIUS_MM)
+			radius = DRIVE_MAX_RADIUS_MM;
+		if (radius < -DRIVE_MAX_RADIUS_MM)
+			radius = -DRIVE_MAX_RADIUS_MM;
+		r = (uint16_t)(int16_t)radius;  /* 1 and -1 pass through unchanged */
+	}
+	v = (uint16_t)(int16_t)velocity;
+
+	seq[0] = OI_OP_DRIVE;
+	seq[1] = (uint8_t)(v >> 8);             /* OI uses big endian */
+	seq[2] = (uint8_t)(v & 0xff);
+	seq[3] = (uint8_t)(r >> 8);
+	seq[4] = (uint8_t)(r & 0xff);
+	return sendSequence(seq, sizeof(seq));
+}
+
+int commandStreamStart(void) {
+	static const uint8_t seq[] = {
+		OI_OP_STREAM, 12,                   /* 12 packets follow */
+		7, 8, 9, 10, 11, 12,                /* bumps, wall, cliffs */
+		22, 23, 24, 25, 26,                 /* battery */
+		35                                  /* OI mode */
+	};
+
+	return sendSequence(seq, sizeof(seq));
 }

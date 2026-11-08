@@ -31,6 +31,13 @@ class MainWindow(QMainWindow):
         self._view = RoombaView()
         self.setCentralWidget(self._view)
 
+        # Drive command that is repeated while a button is held (None = idle).
+        # The daemon watchdog stops the robot if the messages stop arriving.
+        self._drive_cmd = None
+        self._drive_timer = QTimer(self)
+        self._drive_timer.setInterval(100)          # 10 Hz
+        self._drive_timer.timeout.connect(self._resend_drive)
+
         self._build_control_dock()
         self._build_telemetry_dock()
         self.statusBar().showMessage("Disconnected")
@@ -81,11 +88,11 @@ class MainWindow(QMainWindow):
             btn.setMinimumSize(50, 50)
             # pressed/released fire when the mouse button goes down/up.
             btn.pressed.connect(partial(self._drive, factor, radius))
-            btn.released.connect(self._mqtt.stop_driving)
+            btn.released.connect(self._drive_stop)
             grid.addWidget(btn, row, col)
         stop_btn = QPushButton("■")
         stop_btn.setMinimumSize(50, 50)
-        stop_btn.clicked.connect(self._mqtt.stop_driving)
+        stop_btn.clicked.connect(self._drive_stop)
         grid.addWidget(stop_btn, 1, 1)
         grid.addWidget(self._speed, 3, 0, 1, 3)
         grid.addWidget(self._speed_label, 4, 0, 1, 3)
@@ -141,8 +148,21 @@ class MainWindow(QMainWindow):
     # Slots: reactions to button clicks and MQTT signals
     # ------------------------------------------------------------------
     def _drive(self, factor: int, radius: int) -> None:
-        """Send a drive command using the speed from the slider."""
-        self._mqtt.drive(factor * self._speed.value(), radius)
+        """Start driving and keep repeating the command while the button is held."""
+        self._drive_cmd = (factor * self._speed.value(), radius)
+        self._mqtt.drive(*self._drive_cmd)      # send the first message at once
+        self._drive_timer.start()               # then repeat every 100 ms
+
+    def _resend_drive(self) -> None:
+        """Timer slot: repeat the current drive command (keeps the watchdog fed)."""
+        if self._drive_cmd is not None:
+            self._mqtt.drive(*self._drive_cmd)
+
+    def _drive_stop(self) -> None:
+        """Stop repeating and tell the robot to stop."""
+        self._drive_timer.stop()
+        self._drive_cmd = None
+        self._mqtt.stop_driving()
 
     def _toggle_connection(self) -> None:
         if self._connected:
@@ -155,6 +175,7 @@ class MainWindow(QMainWindow):
         self._connected = connected
         self._connect_btn.setText("Disconnect" if connected else "Connect")
         self.statusBar().showMessage("Connected" if connected else "Disconnected")
+        self._drive_stop()
         if not connected:
             self._view.set_state(None)
 

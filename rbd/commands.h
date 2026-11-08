@@ -23,9 +23,11 @@
 #define OI_OP_START             128     /**< Start the OI (Passive mode)           */
 #define OI_OP_SAFE              131     /**< Enter Safe mode                       */
 #define OI_OP_POWER             133     /**< Power down the Roomba                 */
+#define OI_OP_DRIVE             137     /**< Drive with velocity and radius        */
 #define OI_OP_MOTORS            138     /**< Switch brushes and vacuum             */
 #define OI_OP_SENSORS           142     /**< Query a single sensor packet          */
 #define OI_OP_DRIVE_DIRECT      145     /**< Drive wheels with individual speed    */
+#define OI_OP_STREAM            148     /**< Start a sensor stream                 */
 #define OI_OP_STREAM_PAUSE      150     /**< Pause (0) or resume (1) stream        */
 #define OI_OP_DIGIT_LEDS_RAW    163     /**< Display: raw segment bits             */
 #define OI_OP_DIGIT_LEDS_ASCII  164     /**< Display: ASCII characters             */
@@ -34,6 +36,13 @@
 #define DISPLAY_DIGITS            4     /**< Number of digits on the display       */
 #define OI_MODE_CHANGE_US     20000     /**< OI needs >= 20 ms after a mode change */
 #define MODE_REPLY_TIMEOUT_MS   100     /**< Max. wait for the mode reply          */
+
+#define DRIVE_MAX_SPEED_MMS     300     /**< Speed limit enforced on the Pi        */
+#define DRIVE_MAX_RADIUS_MM    2000     /**< Largest radius accepted               */
+#define DRIVE_RADIUS_STRAIGHT 32768     /**< Special radius: drive straight        */
+
+#define WAKE_PULSE_MS          1000     /**< BRC low time for the wake-up pulse    */
+#define WAKE_BOOT_MS           2000     /**< Wait until the Roomba accepts OI      */
 
 /** Open Interface modes as reported by packet 35. */
 typedef enum {
@@ -127,5 +136,49 @@ int commandGetMode(OiMode *mode);
  * @return "OFF", "PASSIVE", "SAFE", "FULL" or "UNKNOWN".
  */
 const char *commandModeName(OiMode mode);
+
+/**
+ * @brief Drive the Roomba with a velocity and a turning radius.
+ *
+ * The velocity is limited to +/- DRIVE_MAX_SPEED_MMS. Special radii:
+ * 32768 (or 32767) = straight, 1 = turn on the spot counter-clockwise (left),
+ * -1 = turn on the spot clockwise (right). All other radii are limited to
+ * +/- DRIVE_MAX_RADIUS_MM.
+ *
+ * @note Requires Safe or Full mode (see commandStart()).
+ *
+ * @param velocity Velocity in mm/s, negative = backwards.
+ * @param radius   Turning radius in mm, see above.
+ *
+ * @return 0 on success, -1 on error (errno set).
+ */
+int commandDrive(int velocity, int radius);
+
+/**
+ * @brief Wake the Roomba up with a pulse on the BRC (Device Detect) pin.
+ *
+ * Pulses DD_PIN low for WAKE_PULSE_MS, waits WAKE_BOOT_MS for the Roomba to
+ * boot and discards stale serial input. The Roomba is awake afterwards but
+ * the OI is not started yet, so call commandStart() next.
+ * Harmless if the Roomba is already awake.
+ *
+ * @note Blocks for about 3 s. Needs wiringPiSetup() and pinMode(DD_PIN, OUTPUT)
+ *       to be done before.
+ *
+ * @return 0 on success, -1 on error (errno set, EBADF if the serial port is closed).
+ */
+int commandWake(void);
+
+/**
+ * @brief Start the sensor stream with the packets used by threadSensors().
+ *
+ * Packets 7-12, 22-26 and 35, one frame every 15 ms.
+ *
+ * @note Call it after commandStart(). Do not call commandGetMode() while
+ *       the stream is running.
+ *
+ * @return 0 on success, -1 on error (errno set).
+ */
+int commandStreamStart(void);
 
 #endif /* COMMANDS_H */
