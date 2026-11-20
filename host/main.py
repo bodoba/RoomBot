@@ -18,7 +18,12 @@ def main() -> int:
     window = MainWindow(mqtt)
     window.show()
 
-    # Stop the MQTT thread cleanly when the window closes.
+    # Connect at startup. This happens AFTER the window has connected its
+    # slots to the MQTT signals, so the first status change is not missed.
+    window.connect_to_broker()
+
+    # Stop the video thread and the MQTT thread cleanly when the window closes.
+    app.aboutToQuit.connect(window.shutdown)
     app.aboutToQuit.connect(mqtt.stop)
     return app.exec()
 

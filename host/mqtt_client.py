@@ -47,6 +47,7 @@ class RoombaMqtt(QObject):
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
+        self._client.on_connect_fail = self._on_connect_fail
 
     # ------------------------------------------------------------------
     # Connection management
@@ -70,13 +71,25 @@ class RoombaMqtt(QObject):
     # paho callbacks (run in the paho network thread!)
     # ------------------------------------------------------------------
     def _on_connect(self, client, userdata, flags, reason_code, properties):
+        """Called by paho when the broker answered our connect request."""
         if reason_code.is_failure:
+            # The broker refused us (e.g. not authorised): report "not connected".
             log.error("MQTT connect failed: %s", reason_code)
+            self.connectionChanged.emit(False)
             return
         log.info("MQTT connected")
         # Subscribe here (not in start) so it is repeated after a reconnect.
         client.subscribe([(config.TOPIC_STATE, 0), (config.TOPIC_HEARTBEAT, 0)])
         self.connectionChanged.emit(True)
+
+    def _on_connect_fail(self, client, userdata):
+        """Called by paho when the TCP connection could not be established.
+
+        With connect_async() a unreachable broker does NOT trigger
+        on_connect, so this callback is needed for the red indicator.
+        """
+        log.warning("MQTT connection attempt failed")
+        self.connectionChanged.emit(False)
 
     def _on_disconnect(self, client, userdata, disconnect_flags,
                        reason_code, properties):
@@ -130,6 +143,10 @@ class RoombaMqtt(QObject):
     def display(self, text: str) -> None:
         """Show up to 4 characters on the Roomba display."""
         self._publish(config.TOPIC_CMD_DISPLAY, {"text": text[:4]})
+
+    def camera(self, enabled: bool) -> None:
+        """Switch the camera on or off on the robot side."""
+        self._publish(config.TOPIC_CMD_CAMERA, {"enabled": bool(enabled)})
 
     def start_robot(self) -> None:
         self._publish(config.TOPIC_CMD_START, {})

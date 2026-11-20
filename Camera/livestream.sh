@@ -1,6 +1,22 @@
 #!/bin/bash
-
-TAG="roomcam"
+# *********************************************************************************** #
+#                                                                                     #
+#  Copyright (c) 2026 by Bodo Bauer <bb@bb-zone.com>                                  #
+#                                                                                     #
+#  This program is free software: you can redistribute it and/or modify               #
+#  it under the terms of the GNU General Public License as published by               #
+#  the Free Software Foundation, either version 3 of the License, or                  #
+#  (at your option) any later version.                                                #
+#                                                                                     #
+#  This program is distributed in the hope that it will be useful,                    #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of                     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                      #
+#  GNU General Public License for more details.                                       #
+#                                                                                     #
+#  You should have received a copy of the GNU General Public License                  #
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.              #
+# *********************************************************************************** #
+TAG="CAMERA"
 
 PIDDIR="/run"
 GO2RTC_PID="${PIDDIR}/go2rtc.pid"
@@ -9,7 +25,12 @@ FFMPEG_PID="${PIDDIR}/ffmpeg-stream.pid"
 RES="320x240"
 FRAMERATE=10
 
+# Get the device name of the webcam
 DEV=`v4l2-ctl --list-devices | grep -A1 "GENERAL WEBCAM:" | tail -1`
+
+FFMPEG_CALL="ffmpeg -nostats -loglevel warning -fflags +discardcorrupt -f v4l2 -input_format mjpeg -video_size $RES -framerate $FRAMERATE -i $DEV -c:v libx264 -preset ultrafast -tune zerolatency -g 15 -keyint_min 15 -x264-params repeat-headers=1 -b:v 400k -maxrate 400k -bufsize 400k -f rtsp -rtsp_flags prefer_tcp -rtsp_transport tcp rtsp://127.0.0.1:8554/webcam" 
+
+# echo $FFMPEG_CALL
 
 is_running()
 {
@@ -45,27 +66,7 @@ start_stream()
 
         logger -t "$TAG" "Starte ffmpeg"
 
-        ffmpeg \
-            -nostats \
-            -loglevel warning \
-            -f v4l2 \
-            -input_format mjpeg \
-            -video_size "$RES" \
-            -framerate "$FRAMERATE" \
-            -i $DEV \
-            -c:v libx264 \
-            -preset ultrafast \
-            -tune zerolatency \
-            -g 15 \
-            -keyint_min 15 \
-            -x264-params repeat-headers=1 \
-            -b:v 400k \
-            -maxrate 400k \
-            -bufsize 400k \
-            -f rtsp \
-            -rtsp_transport tcp \
-            rtsp://127.0.0.1:8554/webcam \
-            2>&1 | logger -t "$TAG" &
+        $FFMPEG_CALL 2>&1 | logger -t "$TAG" &
 
         echo $! > "$FFMPEG_PID"
 
@@ -83,7 +84,7 @@ stop_stream()
 
         logger -t "$TAG" "Stoppe ffmpeg PID=$pid"
 
-        kill "$pid"
+        kill -2 "$pid"
 
         rm -f "$FFMPEG_PID"
     fi
