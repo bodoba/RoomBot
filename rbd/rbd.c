@@ -38,6 +38,7 @@
 #include "commands.h"
 #include "signals.h"
 #include "remotecontrol.h"
+#include "watchdog.h"
 
 /**
  * Some globals we can't do without... ;)
