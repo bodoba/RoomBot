@@ -177,13 +177,14 @@ static int toJson(const SensorData *d, uint64_t seq, char *buf, size_t size)
  * @param arg Unused.
  * @return Never returns.
  */
-void *threadSensors(void*) {
+void *threadSensors(void* arg) {
     SensorData cur, lastPub;
 	Parser ps;
 	struct pollfd pfd;
 	uint64_t seq = 0, lastMs = 0, lastHb = 0;
 	uint8_t rx[128];
 	char json[JSON_MAX];
+	(void)arg;
 
     #ifdef __APPLE__                             /* avoid warning on host build system */
         pthread_setname_np("rbd_sensors");
