@@ -68,6 +68,47 @@ static bool deadlinePassed(const struct timespec *dl)
 }
 
 /**
+ * @brief Wait for the watchdog condition until its monotonic deadline.
+ *
+ * macOS condition variables use CLOCK_REALTIME, so translate the remaining
+ * monotonic interval into a realtime deadline there.
+ *
+ * @return 0 when signaled, ETIMEDOUT when the deadline expires, or an error code.
+ */
+static int watchdogTimedWait(void)
+{
+#ifdef __APPLE__
+	struct timespec monotonicNow;
+	struct timespec realtimeNow;
+	struct timespec realtimeDeadline;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &monotonicNow) < 0)
+		return errno;
+	if (clock_gettime(CLOCK_REALTIME, &realtimeNow) < 0)
+		return errno;
+
+	realtimeDeadline.tv_sec = realtimeNow.tv_sec +
+		wdDeadline.tv_sec - monotonicNow.tv_sec;
+	realtimeDeadline.tv_nsec = realtimeNow.tv_nsec +
+		wdDeadline.tv_nsec - monotonicNow.tv_nsec;
+	if (realtimeDeadline.tv_nsec < 0) {
+		realtimeDeadline.tv_sec--;
+		realtimeDeadline.tv_nsec += 1000000000L;
+	} else if (realtimeDeadline.tv_nsec >= 1000000000L) {
+		realtimeDeadline.tv_sec++;
+		realtimeDeadline.tv_nsec -= 1000000000L;
+	}
+
+	if (deadlinePassed(&wdDeadline))
+		return ETIMEDOUT;
+
+	return pthread_cond_timedwait(&wdCond, &wdLock, &realtimeDeadline);
+#else
+	return pthread_cond_timedwait(&wdCond, &wdLock, &wdDeadline);
+#endif
+}
+
+/**
  * @brief Watchdog thread: stops the robot when the deadline expires.
  *
  * @param arg Unused.
@@ -88,7 +129,7 @@ static void *watchdogThread(void *arg)
 			pthread_cond_wait(&wdCond, &wdLock);
 			continue;
 		}
-		rc = pthread_cond_timedwait(&wdCond, &wdLock, &wdDeadline);
+		rc = watchdogTimedWait();
 
 		/*
 		 * Re-check everything under the lock: the deadline may have
@@ -118,10 +159,25 @@ int watchdogStart(void)
 	int rc;
 
 	/* The condition variable must use the same clock as our deadlines. */
-	pthread_condattr_init(&attr);
-	pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-	pthread_cond_init(&wdCond, &attr);
+	rc = pthread_condattr_init(&attr);
+	if (rc != 0) {
+		errno = rc;
+		return -1;
+	}
+#ifndef __APPLE__
+	rc = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+	if (rc != 0) {
+		pthread_condattr_destroy(&attr);
+		errno = rc;
+		return -1;
+	}
+#endif
+	rc = pthread_cond_init(&wdCond, &attr);
 	pthread_condattr_destroy(&attr);
+	if (rc != 0) {
+		errno = rc;
+		return -1;
+	}
 
 	rc = pthread_create(&tid, NULL, watchdogThread, NULL);
 	if (rc != 0) {
