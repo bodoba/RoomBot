@@ -31,13 +31,27 @@ static bool useSyslog = true;
  * *********************************************************************************** */
 static const char * logLevelText[] = {  "emergency",
                                         "alert",
-                                        "citical",
+                                        "critical",
                                         "error",
                                         "warning",
                                         "notice",
                                         "info",
                                         "debug"
 };
+
+static int normalizeLogLevel( int level ) {
+    if ( level < LOG_EMERG ) {
+        level = LOG_EMERG;
+    } else if ( level > LOG_DEBUG ) {
+        level = LOG_DEBUG;
+    }
+
+    return level;
+}
+
+static bool validLogLevel( int level ) {
+    return ( level >= LOG_EMERG ) && ( level <= LOG_DEBUG );
+}
 
 /* *********************************************************************************** *
  *    P U B L I C  I N T E R F A C E
@@ -52,11 +66,8 @@ void initLog( bool syslog ) {
 }
 
 int setLogLevel( int level ) {
-    logLevel = level;
-    if (logLevel > LOG_DEBUG ) {
-        logLevel = LOG_DEBUG;
-    }
-    writeLog(LOG_NOTICE, "Set log level to %s", logLevelText[level]);
+    logLevel = normalizeLogLevel(level);
+    writeLog(LOG_NOTICE, "Set log level to %s", logLevelText[logLevel]);
     return logLevel;
 }
     
@@ -66,21 +77,34 @@ int getLogLevel( void ) {
 
 void writeLog( int level, const char* format,...) {
     va_list valist;
-    if( level <= logLevel ) {
-        time_t now = time(NULL);
-        struct tm *timestamp = localtime(&now);
-        char fmt[512];
-        va_start(valist, format);
-    
+    if ( validLogLevel(level) && ( level <= logLevel ) ) {
         if ( useSyslog ) {
-            sprintf(fmt, "<%s> %s\n", logLevelText[level], format);
-            vsyslog( level, fmt, valist );
+            va_start(valist, format);
+            vsyslog(level, format, valist);
+            va_end(valist);
         } else {
-            sprintf(fmt, "%04d-%02d-%02d %02d:%02d:%02d <%s> %s\n",
-                    timestamp->tm_year+1900, timestamp->tm_mon+1, timestamp->tm_mday,
-                    timestamp->tm_hour, timestamp->tm_min, timestamp->tm_sec,
-                    logLevelText[level] , format);
-            vprintf( fmt, valist );
+            time_t now = time(NULL);
+            struct tm timestamp;
+
+            if ( ( now != (time_t)-1 ) &&
+                 ( localtime_r(&now, &timestamp) != NULL ) ) {
+                fprintf(stdout,
+                        "%04d-%02d-%02d %02d:%02d:%02d <%s> ",
+                        timestamp.tm_year + 1900,
+                        timestamp.tm_mon + 1,
+                        timestamp.tm_mday,
+                        timestamp.tm_hour,
+                        timestamp.tm_min,
+                        timestamp.tm_sec,
+                        logLevelText[level]);
+            } else {
+                fprintf(stdout, "<%s> ", logLevelText[level]);
+            }
+
+            va_start(valist, format);
+            vprintf(format, valist);
+            va_end(valist);
+            fputc('\n', stdout);
         }
     }
 }
