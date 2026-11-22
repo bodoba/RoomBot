@@ -2,5 +2,4 @@ rtsp:
   listen: ":8554"
 
 streams:
-  webcam:
-    - rtsp://127.0.0.1:8554/webcam
+  webcam: []

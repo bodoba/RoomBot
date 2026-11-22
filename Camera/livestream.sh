@@ -21,8 +21,11 @@ TAG="CAMERA"
 PIDDIR="/run"
 GO2RTC_PID="${PIDDIR}/go2rtc.pid"
 FFMPEG_PID="${PIDDIR}/ffmpeg-stream.pid"
+GO2RTC_CONF="/etc/go2rtc.yaml"
 
-RES="320x240"
+#RES="320x240"
+RES="640x480"
+
 FRAMERATE=10
 
 # Get the device name of the webcam
@@ -58,7 +61,7 @@ start_stream()
     else
         logger -t "$TAG" "Starte go2rtc"
 
-        go2rtc --daemon 2>&1 > /dev/null
+        go2rtc --config "$GO2RTC_CONF" --daemon 2>&1 > /dev/null
 
         sleep 2
 
