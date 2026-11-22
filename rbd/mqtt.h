@@ -25,7 +25,18 @@
 /* *********************************************************************************** *
  * Useful constants                                  
  * *********************************************************************************** */
-#define MAX_MQTT_MESSAGE 1024  /**< Maximum lenght of a MQTT message */
+#define MAX_MQTT_MESSAGE 1024  /**< Maximum length of a MQTT message */
+
+/* *********************************************************************************** *
+ * Compiler attributes
+ * *********************************************************************************** */
+#if defined(__GNUC__) || defined(__clang__)
+/** @brief Check a printf-style argument list at compile time */
+#define MQTT_PRINTF_FORMAT(formatIndex, firstArg) \
+    __attribute__((format(printf, formatIndex, firstArg)))
+#else
+#define MQTT_PRINTF_FORMAT(formatIndex, firstArg)
+#endif
 
 /**
  * @struct mqttIncoming_t
@@ -40,6 +51,7 @@
  */
  typedef struct mqttIncoming_t {
     const char* topic;                          /**< MQTT topic to subscribe to        */
+    int         qos;                            /**< QoS level 0, 1 or 2 for the topic */
     void  (*handler)(char*, int, char*, void*); /**< callback function                 */
     void  *user_data;                           /**< user defined argument             */
 } mqttIncoming_t;
@@ -53,7 +65,8 @@
  * @param[in] broker        IP Address of MQTT broker
  * @param[in] port          Port number of MQTT broker
  * @param[in] keepalive     Keepalive counter of MQTT broker
- * @param[in] subscriptions Array of MQTT subscriptions
+ * @param[in] subscriptions Array of MQTT subscriptions, the last entry 
+ *                          must have topic == NULL
  * 
  * @return true on success, false on error
  */
@@ -68,12 +81,14 @@ void mqttEnd(void );
  * @brief Publish a formatted message with given topic
  * 
  * @param topic   Topic of MQTT message
+ * @param qos     0, 1 or 2 indicating the Quality of Service
  * @param format  A printf-style format string.
  * @param ...     Values referenced by the format string.
  * 
  * @return true on success, false on error
  */
-bool mqttPublish(const char *topic, const char *format,...);
+bool mqttPublish(const char *topic, int qos, const char *format,...)
+    MQTT_PRINTF_FORMAT(3, 4);
 
 /**
  * @brief Publish a formatted message with given topic
@@ -86,6 +101,6 @@ bool mqttPublish(const char *topic, const char *format,...);
  * 
  * @return true on success, false on error
  */
-bool mqttPublishRaw(const char* topic, const char *payload, int len, int qos, bool retain);
+bool mqttPublishRaw(const char* topic, const char *payload, size_t len, int qos, bool retain);
 
 #endif

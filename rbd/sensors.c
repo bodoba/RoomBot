@@ -221,12 +221,12 @@ void *threadSensors(void* arg) {
 		                (cur.oiMode     != lastPub.oiMode)
                     ) || (dirty && t - lastMs >= PUBLISH_PERIOD_MS))) {
 			    toJson(&cur, seq++, json, sizeof(json));
-			    mqttPublish("roombot/sensor/state", "%s", json);
+			    mqttPublish("roombot/sensor/state", 0, "%s", json);
 			    lastPub = cur;
 			    lastMs = t;
 		}
 		if (t - lastHb >= 1000) {       /* keep your 1 s heartbeat */
-			mqttPublish("roombot/sensor/heartbeat","0x%010" PRIx64, (uint64_t)seq);
+			mqttPublish("roombot/sensor/heartbeat", 0, "0x%010" PRIx64, (uint64_t)seq);
 			lastHb = t;
 		}
 	}

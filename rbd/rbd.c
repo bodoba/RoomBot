@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <syslog.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -50,11 +51,11 @@ bool   foreground         = false;             // run in foreground, not as daem
  * MQTT subscriptions
  */
 mqttIncoming_t mqttSubscriptions[] = {
-    {"roombot/cmd/drive",        &mqttDrive,       NULL},
-    {"roombot/cmd/start",        &mqttStart,       NULL},
-    {"roombot/cmd/power_down",    &mqttPowerDown,  NULL},
-    {"roombot/cmd/display",      &mqttDisplay,     NULL},
-    {NULL, NULL, NULL},
+    {"roombot/cmd/drive",        0, &mqttDrive,       NULL},
+    {"roombot/cmd/start",        0, &mqttStart,       NULL},
+    {"roombot/cmd/power_down",   0, &mqttPowerDown,   NULL},
+    {"roombot/cmd/display",      0, &mqttDisplay,     NULL},
+    {NULL, 0, NULL, NULL},
 };
 
 /**
@@ -133,7 +134,7 @@ int main( int argc, char *argv[] ) {
      * ******************************************************************************* */ 
     if ( mqttInit( MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE, mqttSubscriptions) ) {
         writeLog(LOG_INFO, "Connected to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
-        mqttPublish("roombot/info/message", "Connected");
+        mqttPublish("roombot/info/message", 0, "Connected");
     } else {
         writeLog(LOG_ERR,  "Failed to connect to MQTT Broker %s:%04d", MQTT_BROKER, MQTT_PORT);
         exit(1);
@@ -182,7 +183,7 @@ int main( int argc, char *argv[] ) {
     uint32_t heartbeat = 0; 
     for (;;) {
         sleep(1);
-        mqttPublish("roombot/info/heartbeat", "0x%010lx", heartbeat);
+        mqttPublish("roombot/info/heartbeat", 0, "0x%010" PRIx32, heartbeat);
         heartbeat++;
     }
     return 0;
