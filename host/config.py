@@ -1,3 +1,20 @@
+# *********************************************************************************** #
+#                                                                                     #
+#  Copyright (c) 2026 by Bodo Bauer <bb@bb-zone.com>                                  #
+#                                                                                     #
+#  This program is free software: you can redistribute it and/or modify               #
+#  it under the terms of the GNU General Public License as published by               #
+#  the Free Software Foundation, either version 3 of the License, or                  #
+#  (at your option) any later version.                                                #
+#                                                                                     #
+#  This program is distributed in the hope that it will be useful,                    #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of                     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                      #
+#  GNU General Public License for more details.                                       #
+#                                                                                     #
+#  You should have received a copy of the GNU General Public License                  #
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.              #
+# *********************************************************************************** #
 """Central place for all settings and MQTT topic names."""
 
 # Address of the MQTT broker (usually running on the Orange Pi).
@@ -28,8 +45,8 @@ SPEED_MAX = 300
 SPEED_DEFAULT = 100
 
 # --- Video (go2rtc server) ---
-# stream.html is only the browser player page. For frame processing we need
-# the raw stream, so we use go2rtc's MJPEG endpoint on the same server.
+# stream.html is only the browser player page. For frame processing, use the
+# raw RTSP stream published by FFmpeg through go2rtc.
 VIDEO_PAGE_URL = "http://192.168.100.115:1984/stream.html?src=webcam"
 VIDEO_STREAM_URL = "rtsp://192.168.100.115:8554/webcam"
 

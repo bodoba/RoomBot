@@ -1,3 +1,20 @@
+# *********************************************************************************** #
+#                                                                                     #
+#  Copyright (c) 2026 by Bodo Bauer <bb@bb-zone.com>                                  #
+#                                                                                     #
+#  This program is free software: you can redistribute it and/or modify               #
+#  it under the terms of the GNU General Public License as published by               #
+#  the Free Software Foundation, either version 3 of the License, or                  #
+#  (at your option) any later version.                                                #
+#                                                                                     #
+#  This program is distributed in the hope that it will be useful,                    #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of                     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                      #
+#  GNU General Public License for more details.                                       #
+#                                                                                     #
+#  You should have received a copy of the GNU General Public License                  #
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.              #
+# *********************************************************************************** #
 """Main window: robot view in the centre, panels left and right."""
 
 import time
@@ -293,9 +310,12 @@ class MainWindow(QMainWindow):
 
     def _on_frame(self, image: QImage) -> None:
         """A processed frame arrived from the worker thread."""
-        # Late frames still queued after switching off must not be shown.
-        if self._camera_btn.isChecked():
-            self._video_view.show_image(image)
+        try:
+            # Late frames still queued after switching off must not be shown.
+            if self._camera_btn.isChecked():
+                self._video_view.show_image(image)
+        finally:
+            self._video.frame_consumed()
 
     def _on_stream_state(self, state: str) -> None:
         """Worker reports its state: show a hint while no video is running."""

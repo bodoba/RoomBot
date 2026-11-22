@@ -1,3 +1,20 @@
+# *********************************************************************************** #
+#                                                                                     #
+#  Copyright (c) 2026 by Bodo Bauer <bb@bb-zone.com>                                  #
+#                                                                                     #
+#  This program is free software: you can redistribute it and/or modify               #
+#  it under the terms of the GNU General Public License as published by               #
+#  the Free Software Foundation, either version 3 of the License, or                  #
+#  (at your option) any later version.                                                #
+#                                                                                     #
+#  This program is distributed in the hope that it will be useful,                    #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of                     #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                      #
+#  GNU General Public License for more details.                                       #
+#                                                                                     #
+#  You should have received a copy of the GNU General Public License                  #
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.              #
+# *********************************************************************************** #
 """Background thread: read the stream, process each frame, emit a QImage.
 
 The processing pipeline is a list of functions (add_processor). Each one
@@ -6,6 +23,8 @@ place for object detection, drawing boxes, etc. later.
 """
 
 import logging
+import os
+from threading import Lock
 from typing import Callable, List
 
 import cv2
@@ -34,6 +53,8 @@ class VideoWorker(QThread):
         self._url = url
         self._running = False                       # Flag to end the loop.
         self._processors: List[FrameProcessor] = []
+        self._frame_pending = False
+        self._frame_lock = Lock()
 
     # ------------------------------------------------------------------
     # Public interface (called from the GUI thread)
@@ -54,6 +75,11 @@ class VideoWorker(QThread):
         # The wait is limited, because a blocked read ends after its timeout.
         self.wait(config.VIDEO_TIMEOUT_MS + 2000)
 
+    def frame_consumed(self) -> None:
+        """Allow the worker to emit another frame after the GUI handles one."""
+        with self._frame_lock:
+            self._frame_pending = False
+
     # ------------------------------------------------------------------
     # Thread code
     # ------------------------------------------------------------------
@@ -73,7 +99,12 @@ class VideoWorker(QThread):
                     log.warning("Stream lost, reconnecting")
                     break                   # Back to the outer loop.
                 frame = self._apply_processors(frame)
-                self.frameReady.emit(self._to_qimage(frame))
+                with self._frame_lock:
+                    emit_frame = not self._frame_pending
+                    if emit_frame:
+                        self._frame_pending = True
+                if emit_frame:
+                    self.frameReady.emit(self._to_qimage(frame))
             cap.release()
 
             if self._running:               # Avoid a hot reconnect loop.
@@ -84,9 +115,14 @@ class VideoWorker(QThread):
     def _open(self):
         """Open the stream. Returns a VideoCapture or None on failure."""
         # Timeouts prevent read() from blocking forever if the server dies.
+        os.environ.setdefault(
+            "OPENCV_FFMPEG_CAPTURE_OPTIONS",
+            "rtsp_transport;tcp|fflags;nobuffer",
+        )
         cap = cv2.VideoCapture(self._url, cv2.CAP_FFMPEG, [
             cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, config.VIDEO_TIMEOUT_MS,
             cv2.CAP_PROP_READ_TIMEOUT_MSEC, config.VIDEO_TIMEOUT_MS,
+            cv2.CAP_PROP_N_THREADS, 1,
         ])
         if cap.isOpened():
             return cap
